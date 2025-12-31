@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hybrid Crypto Vault</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔐 HYBRID<span class="highlight">CRYPTO</span></h1>
+            <p>Secure RSA + AES Encryption System</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="openTab('gen')">1. Generate Keys</button>
+            <button class="tab-btn" onclick="openTab('enc')">2. Encrypt (Send)</button>
+            <button class="tab-btn" onclick="openTab('dec')">3. Decrypt (Receive)</button>
+        </div>
+
+        <div id="gen" class="tab-content active">
+            <div class="card">
+                <button onclick="generateKeys()" class="action-btn">Generate New Key Pair</button>
+                
+                <div class="output-group">
+                    <label>Public Key (Share This):</label>
+                    <textarea id="gen_pub" readonly></textarea>
+                </div>
+                
+                <div class="output-group">
+                    <label>Private Key (KEEP SECRET):</label>
+                    <textarea id="gen_priv" class="secret" readonly></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="enc" class="tab-content">
+            <div class="card">
+                <div class="input-group">
+                    <label>Receiver's Public Key:</label>
+                    <textarea id="enc_pub_key" placeholder="Paste Public Key teman disini..."></textarea>
+                </div>
+                <div class="input-group">
+                    <label>Secret Message:</label>
+                    <input type="text" id="enc_msg" placeholder="Tulis pesan rahasia...">
+                </div>
+                <button onclick="encryptMsg()" class="action-btn">Lock Message 🔒</button>
+
+                <div class="result-box" id="enc_result" style="display:none;">
+                    <h3>Result (Send these 2 to receiver):</h3>
+                    <label>1. Encrypted AES Key:</label>
+                    <input type="text" id="out_aes_key" readonly>
+                    <label>2. Ciphertext:</label>
+                    <input type="text" id="out_cipher" readonly>
+                </div>
+            </div>
+        </div>
+
+        <div id="dec" class="tab-content">
+            <div class="card">
+                <div class="input-group">
+                    <label>Your Private Key:</label>
+                    <textarea id="dec_priv_key" placeholder="Paste Private Key anda disini..."></textarea>
+                </div>
+                <div class="input-group">
+                    <label>Encrypted AES Key:</label>
+                    <input type="text" id="in_aes_key" placeholder="Paste kunci AES terenkripsi...">
+                </div>
+                <div class="input-group">
+                    <label>Ciphertext:</label>
+                    <input type="text" id="in_cipher" placeholder="Paste ciphertext...">
+                </div>
+                <button onclick="decryptMsg()" class="action-btn secondary">Unlock Message 🔓</button>
+
+                <div class="final-result" id="dec_result_box" style="display:none;">
+                    <span>PESAN ASLI:</span>
+                    <h2 id="final_text">...</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
