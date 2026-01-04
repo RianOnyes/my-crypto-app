@@ -3,56 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Locker</title>
+    <title>PDF Security System</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔒 PDF<span class="highlight">Locker</span></h1>
-            <p>Kunci Dokumen PDF agar aman saat dikirim via Email.</p>
+            <h1>🔒 Secure<span class="highlight">PDF</span></h1>
+            <p>Sistem Enkripsi Dokumen dengan Kode Unik Personal</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="openTab('protect')">1. Kunci PDF</button>
-            <button class="tab-btn" onclick="openTab('hist'); loadHistory()">2. Riwayat</button>
+            <button class="tab-btn active" onclick="openTab('protect')">1. Proteksi File</button>
+            <button class="tab-btn" onclick="openTab('hist'); loadHistory()">2. Riwayat Aktivitas</button>
         </div>
 
         <div id="protect" class="tab-content active">
             <div class="card">
-                <form action="/api/encrypt_pdf" method="POST" enctype="multipart/form-data">
-                    <label>1. Upload File PDF:</label>
-                    <input type="file" name="file" accept=".pdf" required>
+                <form action="/api/process_pdf" method="POST" enctype="multipart/form-data">
                     
-                    <label>2. Buat Password Pengaman:</label>
-                    <input type="text" name="password" placeholder="Password untuk membuka file nanti..." required>
+                    <div class="output-group">
+                        <label>1. Pilih Dokumen Target (PDF):</label>
+                        <input type="file" name="file" accept=".pdf" required>
+                    </div>
+
+                    <div class="output-group">
+                        <label style="color: #38bdf8;">2. Masukkan Kode Unik Enkripsi (Kunci/Password):</label>
+                        <input type="text" name="unique_code" 
+                               placeholder="Contoh: RAHASIA-2025 (Kode ini wajib diingat penerima)" 
+                               required style="border-color: #38bdf8; font-weight: bold;">
+                        <p class="hint" style="text-align: left; margin-top: 5px;">
+                            *Kode ini akan ditanam permanen ke dalam PDF.
+                        </p>
+                    </div>
                     
-                    <button type="submit" class="action-btn">🔒 Kunci & Download PDF</button>
+                    <button type="submit" class="action-btn">
+                        🛡️ Tanamkan Kode & Enkripsi PDF
+                    </button>
                 </form>
-                <p class="hint">
-                    *File hasil download bisa dibuka langsung di HP/Laptop penerima.<br>
-                    Mereka akan diminta password yang Anda buat di atas.
-                </p>
+                
+                <div style="margin-top: 30px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <label style="margin-top: 0;">Cara Kerja Sistem:</label>
+                    <ul style="color: #94a3b8; font-size: 0.9rem; margin-left: 20px; margin-top: 10px;">
+                        <li>Anda mengupload PDF dan menentukan <b>Kode Unik</b>.</li>
+                        <li>Sistem mengunci PDF dengan algoritma AES-128.</li>
+                        <li>Penerima file membuka PDF di HP/Laptop mereka.</li>
+                        <li>PDF Reader otomatis meminta <b>Kode Unik</b> untuk membuka isinya.</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
         <div id="hist" class="tab-content">
             <div class="card">
-                <h3>📜 Riwayat Proses</h3>
+                <h3>📜 Log Riwayat Enkripsi</h3>
                 <table class="history-table">
                     <thead>
                         <tr>
                             <th>Waktu</th>
-                            <th>Status</th>
-                            <th>Nama File</th>
+                            <th>File</th>
+                            <th>Hint Kode</th>
                         </tr>
                     </thead>
                     <tbody id="history-list"></tbody>
                 </table>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button onclick="loadHistory()" class="action-btn" style="background: #475569; flex: 1;">🔄 Refresh</button>
-                    <button onclick="clearHistory()" class="action-btn" style="background: #ef4444; flex: 1;">🗑️ Hapus</button>
+                    <button onclick="clearHistory()" class="action-btn" style="background: #ef4444; flex: 1;">🗑️ Bersihkan</button>
                 </div>
             </div>
         </div>
@@ -68,26 +86,28 @@
 
         async function loadHistory() {
             const list = document.getElementById('history-list');
-            list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Memuat...</td></tr>';
+            list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>';
             try {
                 const response = await fetch('/api/get_history');
                 const data = await response.json();
                 list.innerHTML = '';
-                if(data.length === 0) list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Kosong.</td></tr>';
-                
+                if(data.length === 0) {
+                    list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Belum ada data.</td></tr>';
+                    return;
+                }
                 data.forEach(item => {
                     let row = `<tr>
                         <td style="color:#94a3b8; font-size:0.85rem;">${item.timestamp}</td>
-                        <td><span class="badge-enc">SUKSES</span></td>
                         <td style="color:#f1f5f9; font-weight:bold;">${item.filename}</td>
+                        <td style="color:#38bdf8; font-family:monospace;">${item.unique_code_hint}</td>
                     </tr>`;
                     list.innerHTML += row;
                 });
-            } catch (e) { list.innerHTML = '<tr><td colspan="3">Gagal mengambil data.</td></tr>'; }
+            } catch (e) { list.innerHTML = '<tr><td colspan="3">Error koneksi.</td></tr>'; }
         }
 
         async function clearHistory() {
-            if(confirm("Hapus semua riwayat?")) {
+            if(confirm("Hapus semua catatan riwayat?")) {
                 await fetch('/api/clear_history', { method: 'POST' });
                 loadHistory();
             }
