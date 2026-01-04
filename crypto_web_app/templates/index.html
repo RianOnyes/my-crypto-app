@@ -3,34 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hybrid Crypto Vault</title>
+    <title>Secure File Transfer</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔐 HYBRID<span class="highlight">CRYPTO</span></h1>
-            <p>Secure RSA + AES Encryption System</p>
+            <h1>📁 Secure<span class="highlight">File</span></h1>
+            <p>Enkripsi Dokumen PDF dengan Standar RSA-AES</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="openTab('gen')">1. Generate Keys</button>
-            <button class="tab-btn" onclick="openTab('enc')">2. Encrypt (Send)</button>
-            <button class="tab-btn" onclick="openTab('dec')">3. Decrypt (Receive)</button>
+            <button class="tab-btn active" onclick="openTab('gen')">1. Buat Kunci</button>
+            <button class="tab-btn" onclick="openTab('enc')">2. Enkripsi File</button>
+            <button class="tab-btn" onclick="openTab('dec')">3. Dekripsi File</button>
         </div>
 
         <div id="gen" class="tab-content active">
             <div class="card">
-                <button onclick="generateKeys()" class="action-btn">Generate New Key Pair</button>
+                <label>Buat Password untuk Private Key Anda (Wajib):</label>
+                <input type="text" id="gen_pass" placeholder="Contoh: rahasia123">
+                
+                <button onclick="generateKeys()" class="action-btn">Generate Key Pair</button>
                 
                 <div class="output-group">
-                    <label>Public Key (Share This):</label>
+                    <label>Public Key (Untuk diberikan ke Pengirim):</label>
                     <textarea id="gen_pub" readonly></textarea>
                 </div>
-                
                 <div class="output-group">
-                    <label>Private Key (KEEP SECRET):</label>
+                    <label>Private Key (Simpan sendiri!):</label>
                     <textarea id="gen_priv" class="secret" readonly></textarea>
                 </div>
             </div>
@@ -38,49 +40,64 @@
 
         <div id="enc" class="tab-content">
             <div class="card">
-                <div class="input-group">
-                    <label>Receiver's Public Key:</label>
-                    <textarea id="enc_pub_key" placeholder="Paste Public Key teman disini..."></textarea>
-                </div>
-                <div class="input-group">
-                    <label>Secret Message:</label>
-                    <input type="text" id="enc_msg" placeholder="Tulis pesan rahasia...">
-                </div>
-                <button onclick="encryptMsg()" class="action-btn">Lock Message 🔒</button>
-
-                <div class="result-box" id="enc_result" style="display:none;">
-                    <h3>Result (Send these 2 to receiver):</h3>
-                    <label>1. Encrypted AES Key:</label>
-                    <input type="text" id="out_aes_key" readonly>
-                    <label>2. Ciphertext:</label>
-                    <input type="text" id="out_cipher" readonly>
-                </div>
+                <form action="/api/encrypt_file" method="POST" enctype="multipart/form-data">
+                    <label>1. Upload File (PDF/Doc/Gambar):</label>
+                    <input type="file" name="file" required>
+                    
+                    <label>2. Masukkan Public Key Penerima:</label>
+                    <textarea name="public_key" placeholder="Paste Public Key teman disini..." required></textarea>
+                    
+                    <button type="submit" class="action-btn">🔒 Enkripsi & Download (.secure)</button>
+                </form>
+                <p class="hint">*File yang didownload (.secure) adalah yang dikirim via Email.</p>
             </div>
         </div>
 
         <div id="dec" class="tab-content">
             <div class="card">
-                <div class="input-group">
-                    <label>Your Private Key:</label>
-                    <textarea id="dec_priv_key" placeholder="Paste Private Key anda disini..."></textarea>
-                </div>
-                <div class="input-group">
-                    <label>Encrypted AES Key:</label>
-                    <input type="text" id="in_aes_key" placeholder="Paste kunci AES terenkripsi...">
-                </div>
-                <div class="input-group">
-                    <label>Ciphertext:</label>
-                    <input type="text" id="in_cipher" placeholder="Paste ciphertext...">
-                </div>
-                <button onclick="decryptMsg()" class="action-btn secondary">Unlock Message 🔓</button>
-
-                <div class="final-result" id="dec_result_box" style="display:none;">
-                    <span>PESAN ASLI:</span>
-                    <h2 id="final_text">...</h2>
-                </div>
+                <form action="/api/decrypt_file" method="POST" enctype="multipart/form-data">
+                    <label>1. Upload File Terenkripsi (.secure):</label>
+                    <input type="file" name="file" required>
+                    
+                    <label>2. Masukkan Private Key Anda:</label>
+                    <textarea name="private_key" placeholder="Paste Private Key anda disini..." required></textarea>
+                    
+                    <label>3. Masukkan Password Private Key:</label>
+                    <input type="password" name="password" placeholder="Password yang dibuat di Tahap 1" required>
+                    
+                    <button type="submit" class="action-btn secondary">🔓 Buka Password & Dekripsi</button>
+                </form>
             </div>
         </div>
     </div>
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+    <script>
+        function openTab(id) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        async function generateKeys() {
+            const pass = document.getElementById('gen_pass').value;
+            if(!pass) return alert("Password wajib diisi!");
+
+            const btn = document.querySelector('button[onclick="generateKeys()"]');
+            btn.innerText = "Memproses...";
+            
+            const response = await fetch('/api/generate_keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pass })
+            });
+            const data = await response.json();
+            
+            document.getElementById('gen_priv').value = data.private_key;
+            document.getElementById('gen_pub').value = data.public_key;
+            btn.innerText = "Generate Key Pair";
+            alert("Kunci berhasil dibuat dengan Password!");
+        }
+    </script>
 </body>
 </html>
