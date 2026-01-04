@@ -221,3 +221,41 @@ input[type="file"]::file-selector-button:hover {
     .card { padding: 20px; }
     .tab-btn { font-size: 0.9rem; padding: 10px; }
 }
+/* --- TABLE HISTORY --- */
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.history-table th {
+    text-align: left;
+    padding: 10px;
+    background: #334155;
+    color: var(--primary);
+    font-size: 0.9rem;
+    border-radius: 4px;
+}
+
+.history-table td {
+    padding: 12px 10px;
+    border-bottom: 1px solid #334155;
+}
+
+.badge-enc {
+    background: rgba(56, 189, 248, 0.2);
+    color: var(--primary);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+.badge-dec {
+    background: rgba(52, 211, 153, 0.2);
+    color: var(--success);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
