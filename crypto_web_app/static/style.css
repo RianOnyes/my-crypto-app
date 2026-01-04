@@ -1,14 +1,15 @@
+/* --- RESET & VARIABLES --- */
 :root {
-    --bg-color: #0f172a;
-    --card-bg: #1e293b;
-    --text-main: #e2e8f0;
-    --text-muted: #94a3b8;
-    --primary: #38bdf8; /* Light Blue Neon */
-    --accent: #818cf8;  /* Indigo */
-    --danger: #f87171;
-    --success: #34d399;
+    --bg-color: #0f172a;       /* Dark Navy */
+    --card-bg: #1e293b;        /* Lighter Navy */
+    --text-main: #f1f5f9;      /* White-ish */
+    --text-muted: #94a3b8;     /* Grey */
+    --primary: #38bdf8;        /* Neon Blue */
+    --accent: #818cf8;         /* Indigo */
+    --danger: #f87171;         /* Soft Red */
+    --success: #34d399;        /* Neon Green */
     --font-ui: 'Inter', sans-serif;
-    --font-code: 'JetBrains Mono', monospace;
+    --font-code: 'Courier New', monospace; /* Font ala Hacker */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -21,33 +22,50 @@ body {
     justify-content: center;
     min-height: 100vh;
     padding: 20px;
+    line-height: 1.6;
 }
 
+/* --- CONTAINER (Perbaikan max-width) --- */
 .container {
     width: 100%;
-    max-width: 800px;  /* Perhatikan: pakai strip (-), bukan underscore (_) */
+    max-width: 800px; /* Batas lebar agar enak dibaca di laptop */
+    margin: 0 auto;
 }
 
+/* --- HEADER --- */
 header {
     text-align: center;
     margin-bottom: 30px;
+    padding-top: 20px;
 }
 
-h1 { font-size: 2.5rem; letter-spacing: -1px; }
-.highlight { color: var(--primary); }
+h1 { 
+    font-size: 2.5rem; 
+    letter-spacing: -1px; 
+    margin-bottom: 5px;
+}
 
-/* TABS */
+.highlight { 
+    color: var(--primary); 
+    text-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+}
+
+p { color: var(--text-muted); font-size: 0.95rem; }
+
+/* --- TABS --- */
 .tabs {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap; /* Agar tombol turun ke bawah jika di HP */
 }
 
 .tab-btn {
     flex: 1;
+    min-width: 120px;
     padding: 12px;
-    background: transparent;
-    border: 1px solid var(--text-muted);
+    background: rgba(30, 41, 59, 0.5);
+    border: 1px solid #334155;
     color: var(--text-muted);
     cursor: pointer;
     border-radius: 8px;
@@ -55,89 +73,151 @@ h1 { font-size: 2.5rem; letter-spacing: -1px; }
     transition: all 0.3s;
 }
 
-.tab-btn.active, .tab-btn:hover {
+.tab-btn:hover {
+    background: #334155;
+    color: white;
+}
+
+.tab-btn.active {
     background: var(--primary);
     color: var(--bg-color);
     border-color: var(--primary);
     box-shadow: 0 0 15px rgba(56, 189, 248, 0.4);
 }
 
-.tab-content { display: none; animation: fadeIn 0.4s; }
+.tab-content { display: none; animation: slideUp 0.4s ease-out; }
 .tab-content.active { display: block; }
 
-/* CARDS & INPUTS */
+/* --- CARD STYLE --- */
 .card {
     background: var(--card-bg);
-    padding: 25px;
+    padding: 30px;
     border-radius: 16px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
     border: 1px solid #334155;
 }
 
+/* --- FORM ELEMENTS --- */
 label {
     display: block;
+    margin-top: 15px;
     margin-bottom: 8px;
-    color: var(--text-muted);
+    color: var(--primary);
     font-size: 0.9rem;
     font-weight: 600;
+    letter-spacing: 0.5px;
 }
 
-textarea, input[type="text"] {
+/* Input Teks & Password */
+input[type="text"], 
+input[type="password"],
+textarea {
     width: 100%;
-    background: #0f172a;
+    background: #0b1120;
     border: 1px solid #334155;
-    color: var(--success);
+    color: var(--text-main);
     font-family: var(--font-code);
-    padding: 12px;
+    padding: 14px;
     border-radius: 8px;
-    margin-bottom: 15px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
+    transition: border 0.3s;
 }
 
-textarea:focus, input:focus {
+input:focus, textarea:focus {
     outline: none;
     border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
 textarea { height: 100px; resize: vertical; }
 
-/* BUTTONS */
+/* --- KHUSUS FILE INPUT (Agar Keren) --- */
+input[type="file"] {
+    background: #0b1120;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px dashed #475569;
+    width: 100%;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    margin-right: 15px;
+    cursor: pointer;
+    font-weight: bold;
+    font-family: var(--font-ui);
+    transition: background 0.3s;
+}
+
+input[type="file"]::file-selector-button:hover {
+    background: var(--primary);
+}
+
+/* --- BUTTONS --- */
 .action-btn {
     width: 100%;
-    padding: 15px;
+    margin-top: 25px;
+    padding: 16px;
     background: linear-gradient(135deg, var(--primary), var(--accent));
     border: none;
     color: white;
     font-weight: bold;
     font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
     border-radius: 8px;
     cursor: pointer;
-    transition: transform 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.action-btn:hover {
+    box-shadow: 0 10px 20px rgba(56, 189, 248, 0.3);
 }
 
 .action-btn:active { transform: scale(0.98); }
-.action-btn.secondary { background: linear-gradient(135deg, var(--success), #059669); }
 
-/* RESULT BOXES */
-.result-box {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px dashed var(--text-muted);
+/* Tombol Dekripsi (Warna Hijau) */
+.action-btn.secondary { 
+    background: linear-gradient(135deg, var(--success), #059669); 
+    color: #064e3b;
+}
+.action-btn.secondary:hover {
+    box-shadow: 0 10px 20px rgba(52, 211, 153, 0.3);
 }
 
-.final-result {
-    margin-top: 20px;
+/* --- UTILITIES --- */
+.output-group { margin-top: 15px; }
+
+/* Warna khusus untuk Private Key agar user waspada */
+.secret { 
+    color: var(--danger) !important; 
+    border-color: rgba(248, 113, 113, 0.3) !important;
+    background: rgba(248, 113, 113, 0.05) !important;
+}
+
+.hint {
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #fbbf24; /* Amber/Orange */
+    font-style: italic;
     text-align: center;
-    padding: 20px;
-    background: rgba(52, 211, 153, 0.1);
-    border: 1px solid var(--success);
-    border-radius: 12px;
 }
 
-#final_text { color: var(--success); margin-top: 10px; }
-.secret { color: var(--danger); border-color: rgba(248, 113, 113, 0.3); }
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
+/* --- ANIMATION --- */
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- MOBILE RESPONSIVE --- */
+@media (max-width: 600px) {
+    h1 { font-size: 2rem; }
+    .card { padding: 20px; }
+    .tab-btn { font-size: 0.9rem; padding: 10px; }
 }
