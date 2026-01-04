@@ -18,15 +18,14 @@
             <button class="tab-btn active" onclick="openTab('gen')">1. Buat Kunci</button>
             <button class="tab-btn" onclick="openTab('enc')">2. Enkripsi File</button>
             <button class="tab-btn" onclick="openTab('dec')">3. Dekripsi File</button>
+            <button class="tab-btn" onclick="openTab('hist'); loadHistory()">4. Riwayat</button>
         </div>
 
         <div id="gen" class="tab-content active">
             <div class="card">
                 <label>Buat Password untuk Private Key Anda (Wajib):</label>
                 <input type="text" id="gen_pass" placeholder="Contoh: rahasia123">
-                
                 <button onclick="generateKeys()" class="action-btn">Generate Key Pair</button>
-                
                 <div class="output-group">
                     <label>Public Key (Untuk diberikan ke Pengirim):</label>
                     <textarea id="gen_pub" readonly></textarea>
@@ -43,13 +42,10 @@
                 <form action="/api/encrypt_file" method="POST" enctype="multipart/form-data">
                     <label>1. Upload File (PDF/Doc/Gambar):</label>
                     <input type="file" name="file" required>
-                    
                     <label>2. Masukkan Public Key Penerima:</label>
                     <textarea name="public_key" placeholder="Paste Public Key teman disini..." required></textarea>
-                    
                     <button type="submit" class="action-btn">🔒 Enkripsi & Download (.secure)</button>
                 </form>
-                <p class="hint">*File yang didownload (.secure) adalah yang dikirim via Email.</p>
             </div>
         </div>
 
@@ -58,15 +54,31 @@
                 <form action="/api/decrypt_file" method="POST" enctype="multipart/form-data">
                     <label>1. Upload File Terenkripsi (.secure):</label>
                     <input type="file" name="file" required>
-                    
                     <label>2. Masukkan Private Key Anda:</label>
                     <textarea name="private_key" placeholder="Paste Private Key anda disini..." required></textarea>
-                    
                     <label>3. Masukkan Password Private Key:</label>
                     <input type="password" name="password" placeholder="Password yang dibuat di Tahap 1" required>
-                    
                     <button type="submit" class="action-btn secondary">🔓 Buka Password & Dekripsi</button>
                 </form>
+            </div>
+        </div>
+
+        <div id="hist" class="tab-content">
+            <div class="card">
+                <h3>📜 Riwayat Aktivitas</h3>
+                <p class="hint" style="text-align: left; margin-bottom: 15px;">Daftar file yang pernah diproses oleh sistem.</p>
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Aktivitas</th>
+                            <th>Nama File</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-list">
+                        </tbody>
+                </table>
+                <button onclick="loadHistory()" class="action-btn" style="margin-top: 20px; background: #475569;">🔄 Refresh Data</button>
             </div>
         </div>
     </div>
@@ -82,21 +94,48 @@
         async function generateKeys() {
             const pass = document.getElementById('gen_pass').value;
             if(!pass) return alert("Password wajib diisi!");
-
             const btn = document.querySelector('button[onclick="generateKeys()"]');
             btn.innerText = "Memproses...";
-            
             const response = await fetch('/api/generate_keys', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password: pass })
             });
             const data = await response.json();
-            
             document.getElementById('gen_priv').value = data.private_key;
             document.getElementById('gen_pub').value = data.public_key;
             btn.innerText = "Generate Key Pair";
-            alert("Kunci berhasil dibuat dengan Password!");
+            alert("Kunci berhasil dibuat!");
+        }
+
+        async function loadHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>';
+            
+            try {
+                const response = await fetch('/api/get_history');
+                const data = await response.json();
+                
+                list.innerHTML = '';
+                if(data.length === 0) {
+                    list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Belum ada riwayat.</td></tr>';
+                    return;
+                }
+
+                data.forEach(item => {
+                    let badgeClass = item.action === 'Enkripsi' ? 'badge-enc' : 'badge-dec';
+                    let row = `
+                        <tr>
+                            <td style="font-size: 0.85rem; color: #94a3b8;">${item.timestamp}</td>
+                            <td><span class="${badgeClass}">${item.action}</span></td>
+                            <td style="font-weight: bold; color: #f1f5f9;">${item.filename}</td>
+                        </tr>
+                    `;
+                    list.innerHTML += row;
+                });
+            } catch (e) {
+                list.innerHTML = '<tr><td colspan="3">Gagal mengambil data.</td></tr>';
+            }
         }
     </script>
 </body>
