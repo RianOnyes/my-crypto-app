@@ -3,74 +3,94 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Security System</title>
+    <title>2-Step RSA Security</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🔒 Secure<span class="highlight">PDF</span></h1>
-            <p>Sistem Enkripsi Dokumen dengan Kode Unik Personal</p>
+            <h1>🔐 RSA<span class="highlight">2Step</span></h1>
+            <p>Sistem Keamanan Email dengan Autentikasi Ganda</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="openTab('protect')">1. Proteksi File</button>
-            <button class="tab-btn" onclick="openTab('hist'); loadHistory()">2. Riwayat Aktivitas</button>
+            <button class="tab-btn active" onclick="openTab('gen')">1. Buat Kunci</button>
+            <button class="tab-btn" onclick="openTab('enc')">2. Enkripsi (Pengirim)</button>
+            <button class="tab-btn" onclick="openTab('dec')">3. Dekripsi (Penerima)</button>
+            <button class="tab-btn" onclick="openTab('hist'); loadHistory()">4. Riwayat</button>
         </div>
 
-        <div id="protect" class="tab-content active">
+        <div id="gen" class="tab-content active">
             <div class="card">
-                <form action="/api/process_pdf" method="POST" enctype="multipart/form-data">
+                <div class="step-box">
+                    <label>Buat Password Asli Anda:</label>
+                    <input type="text" id="gen_pass" placeholder="Password ini untuk membuka kunci nanti..." style="font-weight: bold; color: #38bdf8;">
+                </div>
+                
+                <button onclick="generateKeys()" class="action-btn">Generate Key Pair</button>
+                
+                <div class="output-group">
+                    <label>Public Code (Kirim ke Pengirim Email):</label>
+                    <textarea id="gen_pub" readonly></textarea>
+                </div>
+                <div class="output-group">
+                    <label>Private Code (Simpan di Laptop Anda):</label>
+                    <textarea id="gen_priv" class="secret" readonly></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div id="enc" class="tab-content">
+            <div class="card">
+                <form action="/api/encrypt_file" method="POST" enctype="multipart/form-data">
+                    <label>1. Upload File yang mau dikirim:</label>
+                    <input type="file" name="file" required>
                     
-                    <div class="output-group">
-                        <label>1. Pilih Dokumen Target (PDF):</label>
-                        <input type="file" name="file" accept=".pdf" required>
+                    <label>2. Masukkan Public Code Penerima:</label>
+                    <textarea name="public_key" placeholder="Tempel Public Key dari penerima..." required></textarea>
+                    
+                    <button type="submit" class="action-btn">🔒 Enkripsi File</button>
+                </form>
+                <p class="hint">File hasil (.secure) aman dikirim lewat Email.</p>
+            </div>
+        </div>
+
+        <div id="dec" class="tab-content">
+            <div class="card">
+                <form action="/api/decrypt_file" method="POST" enctype="multipart/form-data">
+                    <div style="margin-bottom: 20px;">
+                        <label>Upload File Terenkripsi dari Email (.secure):</label>
+                        <input type="file" name="file" required>
                     </div>
 
-                    <div class="output-group">
-                        <label style="color: #38bdf8;">2. Masukkan Kode Unik Enkripsi (Kunci/Password):</label>
-                        <input type="text" name="unique_code" 
-                               placeholder="Contoh: RAHASIA-2025 (Kode ini wajib diingat penerima)" 
-                               required style="border-color: #38bdf8; font-weight: bold;">
-                        <p class="hint" style="text-align: left; margin-top: 5px;">
-                            *Kode ini akan ditanam permanen ke dalam PDF.
-                        </p>
+                    <div class="step-container" style="border: 1px solid #334155; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: rgba(0,0,0,0.2);">
+                        <label style="color: #fbbf24;">TAHAP 1: Private Key</label>
+                        <textarea name="private_key" placeholder="Tempel Private Code anda disini..." required style="height: 80px;"></textarea>
+                    </div>
+
+                    <div class="step-container" style="border: 1px solid #334155; padding: 15px; border-radius: 8px; margin-bottom: 20px; background: rgba(0,0,0,0.2);">
+                        <label style="color: #38bdf8;">TAHAP 2: Password Asli</label>
+                        <input type="password" name="password" placeholder="Masukkan Password pembuka kunci..." required>
                     </div>
                     
-                    <button type="submit" class="action-btn">
-                        🛡️ Tanamkan Kode & Enkripsi PDF
-                    </button>
+                    <button type="submit" class="action-btn secondary">🔓 Buka File</button>
                 </form>
-                
-                <div style="margin-top: 30px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px;">
-                    <label style="margin-top: 0;">Cara Kerja Sistem:</label>
-                    <ul style="color: #94a3b8; font-size: 0.9rem; margin-left: 20px; margin-top: 10px;">
-                        <li>Anda mengupload PDF dan menentukan <b>Kode Unik</b>.</li>
-                        <li>Sistem mengunci PDF dengan algoritma AES-128.</li>
-                        <li>Penerima file membuka PDF di HP/Laptop mereka.</li>
-                        <li>PDF Reader otomatis meminta <b>Kode Unik</b> untuk membuka isinya.</li>
-                    </ul>
-                </div>
             </div>
         </div>
 
         <div id="hist" class="tab-content">
             <div class="card">
-                <h3>📜 Log Riwayat Enkripsi</h3>
+                <h3>📜 Log Aktivitas</h3>
                 <table class="history-table">
                     <thead>
-                        <tr>
-                            <th>Waktu</th>
-                            <th>File</th>
-                            <th>Hint Kode</th>
-                        </tr>
+                        <tr><th>Waktu</th><th>Aksi</th><th>File</th></tr>
                     </thead>
                     <tbody id="history-list"></tbody>
                 </table>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button onclick="loadHistory()" class="action-btn" style="background: #475569; flex: 1;">🔄 Refresh</button>
-                    <button onclick="clearHistory()" class="action-btn" style="background: #ef4444; flex: 1;">🗑️ Bersihkan</button>
+                    <button onclick="clearHistory()" class="action-btn" style="background: #ef4444; flex: 1;">🗑️ Hapus</button>
                 </div>
             </div>
         </div>
@@ -84,30 +104,45 @@
             event.currentTarget.classList.add('active');
         }
 
+        async function generateKeys() {
+            const pass = document.getElementById('gen_pass').value;
+            if(!pass) return alert("Password Asli wajib diisi untuk Tahap 2 nanti!");
+            
+            const btn = document.querySelector('button[onclick="generateKeys()"]');
+            btn.innerText = "Memproses...";
+            
+            const response = await fetch('/api/generate_keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: pass })
+            });
+            const data = await response.json();
+            
+            document.getElementById('gen_priv').value = data.private_key;
+            document.getElementById('gen_pub').value = data.public_key;
+            btn.innerText = "Generate Key Pair";
+            alert("BERHASIL! Simpan Private Code & Password Anda.");
+        }
+
         async function loadHistory() {
             const list = document.getElementById('history-list');
-            list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Memuat data...</td></tr>';
             try {
-                const response = await fetch('/api/get_history');
-                const data = await response.json();
+                const res = await fetch('/api/get_history');
+                const data = await res.json();
                 list.innerHTML = '';
-                if(data.length === 0) {
-                    list.innerHTML = '<tr><td colspan="3" style="text-align:center;">Belum ada data.</td></tr>';
-                    return;
-                }
+                if(data.length === 0) list.innerHTML = '<tr><td colspan="3" align="center">Kosong</td></tr>';
                 data.forEach(item => {
-                    let row = `<tr>
-                        <td style="color:#94a3b8; font-size:0.85rem;">${item.timestamp}</td>
-                        <td style="color:#f1f5f9; font-weight:bold;">${item.filename}</td>
-                        <td style="color:#38bdf8; font-family:monospace;">${item.unique_code_hint}</td>
+                    list.innerHTML += `<tr>
+                        <td style="color:#94a3b8; font-size:0.8rem;">${item.timestamp}</td>
+                        <td>${item.action}</td>
+                        <td style="color:#fff;">${item.filename}</td>
                     </tr>`;
-                    list.innerHTML += row;
                 });
-            } catch (e) { list.innerHTML = '<tr><td colspan="3">Error koneksi.</td></tr>'; }
+            } catch(e) {}
         }
 
         async function clearHistory() {
-            if(confirm("Hapus semua catatan riwayat?")) {
+            if(confirm("Hapus history?")) {
                 await fetch('/api/clear_history', { method: 'POST' });
                 loadHistory();
             }
