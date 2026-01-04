@@ -142,7 +142,7 @@ def method1_decrypt():
             aes_key = derive_key(password, salt)
             fernet = Fernet(aes_key)
             original_data = fernet.decrypt(encrypted_file)
-        except: return "Kunci Benar, TAPI PASSWORD SALAH!", 403
+        except: return "COBA LAGI ANDA KURANG BERUNTUNG!", 403
         
         return send_file(io.BytesIO(original_data), as_attachment=True, download_name="hasil_decrypt_metode1.pdf", mimetype='application/pdf')
     except Exception as e: return f"Error: {e}", 500
@@ -175,3 +175,4 @@ def method2_encrypt():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
