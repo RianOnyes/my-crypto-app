@@ -3,7 +3,10 @@ import io
 import os
 import sqlite3
 from datetime import datetime
-from pypdf import PdfReader, PdfWriter # Kita pakai ini untuk standar PDF
+# Library Kriptografi Wajib
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.fernet import Fernet
 
 app = Flask(__name__)
 
@@ -19,7 +22,6 @@ def init_db():
                          (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                           filename TEXT, 
                           action TEXT, 
-                          unique_code_hint TEXT,
                           timestamp TEXT)''')
             conn.commit()
     except Exception as e:
@@ -27,15 +29,13 @@ def init_db():
 
 init_db()
 
-def log_history(filename, code):
+def log_history(filename, action):
     try:
         with sqlite3.connect(DB_PATH) as conn:
             c = conn.cursor()
             waktu = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            # Kita simpan 3 huruf pertama kode sebagai "Hint" (biar admin tau, tapi ga tau fullnya)
-            hint = f"{code[:3]}***" if len(code) > 3 else "***"
-            c.execute("INSERT INTO history (filename, action, unique_code_hint, timestamp) VALUES (?, ?, ?, ?)", 
-                      (filename, "Enkripsi PDF", hint, waktu))
+            c.execute("INSERT INTO history (filename, action, timestamp) VALUES (?, ?, ?)", 
+                      (filename, action, waktu))
             conn.commit()
     except Exception as e:
         print(f"Gagal log: {e}")
@@ -46,46 +46,6 @@ def log_history(filename, code):
 def index():
     return render_template('index.html')
 
-@app.route('/api/process_pdf', methods=['POST'])
-def process_pdf():
-    try:
-        # 1. Ambil File & Kode Unik
-        file = request.files['file']
-        unique_code = request.form['unique_code'] # Ini password aslinya
-        
-        if not file or not unique_code:
-            return "File PDF dan Kode Unik wajib diisi!", 400
-            
-        # 2. Proses Enkripsi Standar PDF
-        input_pdf = PdfReader(file)
-        output_pdf = PdfWriter()
-        
-        # Salin halaman
-        for page in input_pdf.pages:
-            output_pdf.add_page(page)
-            
-        # 3. Kunci PDF menggunakan Kode Unik tersebut
-        output_pdf.encrypt(unique_code)
-        
-        # 4. Simpan ke Buffer (Memori) untuk didownload
-        output_buffer = io.BytesIO()
-        output_pdf.write(output_buffer)
-        output_buffer.seek(0)
-        
-        # 5. Catat di Riwayat
-        log_history(file.filename, unique_code)
-        
-        return send_file(
-            output_buffer,
-            as_attachment=True,
-            download_name=f"SECURE_{file.filename}",
-            mimetype='application/pdf'
-        )
-
-    except Exception as e:
-        return f"Gagal memproses. Pastikan file adalah PDF valid. Error: {str(e)}", 500
-
-# --- API HISTORY ---
 @app.route('/api/get_history')
 def get_history():
     try:
@@ -107,6 +67,136 @@ def clear_history():
         return jsonify({'status': 'success'})
     except Exception as e:
         return jsonify({'status': 'error'})
+
+# --- 1. BUAT KUNCI (Dengan Password) ---
+@app.route('/api/generate_keys', methods=['POST'])
+def generate_keys():
+    data = request.json
+    passphrase = data.get('password') # Password Tahap 2
+    
+    if not passphrase:
+        return jsonify({'status': 'error', 'message': 'Password wajib diisi!'})
+
+    # Buat Kunci RSA 2048-bit
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key = private_key.public_key()
+    
+    # Kunci Privat diproteksi Password
+    pem_priv = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.BestAvailableEncryption(passphrase.encode())
+    )
+    
+    pem_pub = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    
+    return jsonify({
+        'status': 'success',
+        'private_key': pem_priv.decode('utf-8'),
+        'public_key': pem_pub.decode('utf-8')
+    })
+
+# --- 2. ENKRIPSI (Pengirim) ---
+@app.route('/api/encrypt_file', methods=['POST'])
+def encrypt_file():
+    try:
+        file = request.files['file']
+        pub_key_str = request.form['public_key']
+        
+        if not file or not pub_key_str:
+            return "File dan Public Key wajib ada", 400
+
+        log_history(file.filename, "Enkripsi RSA")
+
+        # Load Public Key
+        public_key = serialization.load_pem_public_key(pub_key_str.encode())
+        
+        # Buat Session Key (AES)
+        aes_key = Fernet.generate_key()
+        fernet = Fernet(aes_key)
+        
+        # Enkripsi Konten File
+        file_data = file.read()
+        encrypted_file_data = fernet.encrypt(file_data)
+        
+        # Enkripsi Session Key dengan RSA
+        encrypted_aes_key = public_key.encrypt(
+            aes_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+        
+        # Gabungkan Metadata + Key + Data
+        final_data = len(encrypted_aes_key).to_bytes(4, 'big') + encrypted_aes_key + encrypted_file_data
+        
+        return send_file(
+            io.BytesIO(final_data),
+            as_attachment=True,
+            download_name=f"{file.filename}.secure",
+            mimetype='application/octet-stream'
+        )
+
+    except Exception as e:
+        return f"Error Enkripsi: {str(e)}", 500
+
+# --- 3. DEKRIPSI (2 TAHAPAN: Key + Password) ---
+@app.route('/api/decrypt_file', methods=['POST'])
+def decrypt_file():
+    try:
+        file = request.files['file']
+        priv_key_str = request.form['private_key'] # Tahap 1
+        passphrase = request.form['password']      # Tahap 2
+        
+        if not file or not priv_key_str or not passphrase:
+            return "Data tidak lengkap! Harap isi Kunci dan Password.", 400
+
+        # Baca struktur file .secure
+        full_data = file.read()
+        key_len = int.from_bytes(full_data[:4], 'big')
+        encrypted_aes_key = full_data[4:4+key_len]
+        encrypted_file_data = full_data[4+key_len:]
+        
+        # PROSES VALIDASI TAHAP 1 & 2
+        try:
+            private_key = serialization.load_pem_private_key(
+                priv_key_str.encode(),
+                password=passphrase.encode() # Validasi Password disini
+            )
+        except ValueError:
+            return "GAGAL TAHAP 2: Password Anda Salah!", 403
+        except Exception:
+            return "GAGAL TAHAP 1: Private Key tidak valid!", 403
+
+        # Jika lolos, lanjut dekripsi
+        aes_key = private_key.decrypt(
+            encrypted_aes_key,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+        
+        fernet = Fernet(aes_key)
+        original_file_data = fernet.decrypt(encrypted_file_data)
+        
+        log_history(file.filename, "Dekripsi Sukses")
+        
+        return send_file(
+            io.BytesIO(original_file_data),
+            as_attachment=True,
+            download_name="file_terbuka.pdf", # Asumsi PDF
+            mimetype='application/pdf'
+        )
+        
+    except Exception as e:
+        return f"Error Sistem: {str(e)}", 500
 
 if __name__ == '__main__':
     app.run(debug=True)
