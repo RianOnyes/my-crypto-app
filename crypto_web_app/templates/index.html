@@ -3,132 +3,142 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dual Factor Crypto</title>
+    <title>Dual Method Crypto</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
+    <div class="container" style="max-width: 900px;">
         <header>
-            <h1>🛡️ Dual<span class="highlight">Shield</span></h1>
-            <p>Enkripsi Kombinasi: RSA (File Key) + AES (Password Manual)</p>
+            <h1>🔐 Multi<span class="highlight">Crypto</span></h1>
+            <p>Pilih Metode Pengamanan Dokumen Anda</p>
         </header>
 
         <div class="tabs">
-            <button class="tab-btn active" onclick="openTab('gen')">1. Buat Kunci RSA</button>
-            <button class="tab-btn" onclick="openTab('enc')">2. Enkripsi (Double)</button>
-            <button class="tab-btn" onclick="openTab('dec')">3. Dekripsi (Double)</button>
-            <button class="tab-btn" onclick="openTab('hist'); loadHistory()">4. Riwayat</button>
+            <button class="tab-btn active" onclick="openMethod('m1')">METODE 1: High Security (RSA + Sandi)</button>
+            <button class="tab-btn" onclick="openMethod('m2')">METODE 2: PDF Standard (Sandi Saja)</button>
+            <button class="tab-btn" onclick="openMethod('hist'); loadHistory()">Riwayat</button>
         </div>
 
-        <div id="gen" class="tab-content active">
-            <div class="card">
-                <p style="margin-bottom: 20px;">Klik tombol di bawah untuk membuat pasangan kunci RSA (Public & Private).</p>
-                <button onclick="generateKeys()" class="action-btn">Generate Key Pair</button>
-                
-                <div class="output-group">
-                    <label>Public Key (Untuk Enkripsi):</label>
-                    <textarea id="gen_pub" readonly></textarea>
+        <div id="m1" class="main-content active">
+            <div class="card" style="border-top: 4px solid #38bdf8;">
+                <h3 style="color: #38bdf8; margin-bottom: 10px;">Metode 1: Enkripsi "Word Diacak" Total</h3>
+                <p class="hint" style="text-align: left; margin-bottom: 20px;">
+                    File hasil <b>(.secure)</b> akan rusak/acak jika dibuka paksa. Harus dibuka lewat aplikasi ini dengan Kunci File + Password.
+                </p>
+
+                <div class="tabs-small">
+                    <button class="t-btn" onclick="subTab('gen')">A. Buat Kunci</button>
+                    <button class="t-btn" onclick="subTab('enc1')">B. Enkripsi</button>
+                    <button class="t-btn" onclick="subTab('dec1')">C. Dekripsi</button>
                 </div>
-                <div class="output-group">
-                    <label>Private Key (Untuk Dekripsi - SIMPAN INI):</label>
-                    <textarea id="gen_priv" class="secret" readonly></textarea>
+
+                <div id="gen" class="sub-content active">
+                    <button onclick="generateKeys()" class="action-btn">Buat Kunci RSA Baru</button>
+                    <div class="output-group"><label>Public Key (Kirim ke Pengirim):</label><textarea id="gen_pub" readonly></textarea></div>
+                    <div class="output-group"><label>Private Key (Simpan Sendiri):</label><textarea id="gen_priv" class="secret" readonly></textarea></div>
+                </div>
+
+                <div id="enc1" class="sub-content" style="display:none;">
+                    <form action="/api/method1_encrypt" method="POST" enctype="multipart/form-data">
+                        <label>Upload File:</label><input type="file" name="file" required>
+                        <label>Public Key Penerima:</label><textarea name="public_key" required></textarea>
+                        <label>Buat Password Manual (Wajib):</label><input type="text" name="password" placeholder="Contoh: Rahasia123" required>
+                        <button type="submit" class="action-btn">🔒 Enkripsi (Jadi .secure)</button>
+                    </form>
+                </div>
+
+                <div id="dec1" class="sub-content" style="display:none;">
+                    <form action="/api/method1_decrypt" method="POST" enctype="multipart/form-data">
+                        <label>File .secure:</label><input type="file" name="file" required>
+                        <label>Private Key Anda:</label><textarea name="private_key" required></textarea>
+                        <label>Password dari Pengirim:</label><input type="password" name="password" required>
+                        <button type="submit" class="action-btn secondary">🔓 Dekripsi File</button>
+                    </form>
                 </div>
             </div>
         </div>
 
-        <div id="enc" class="tab-content">
-            <div class="card">
-                <form action="/api/encrypt_dual" method="POST" enctype="multipart/form-data">
-                    <label>1. Upload File:</label>
-                    <input type="file" name="file" required>
-                    
-                    <div class="step-container" style="margin-top: 15px; border-left: 3px solid #38bdf8; padding-left: 15px;">
-                        <label style="color: #38bdf8;">METODE 1: Public Key</label>
-                        <textarea name="public_key" placeholder="Paste Public Key penerima..." required style="height: 80px;"></textarea>
-                    </div>
+        <div id="m2" class="main-content" style="display:none;">
+            <div class="card" style="border-top: 4px solid #f87171;">
+                <h3 style="color: #f87171; margin-bottom: 10px;">Metode 2: Proteksi PDF Langsung</h3>
+                <p class="hint" style="text-align: left; margin-bottom: 20px;">
+                    File hasil <b>(.pdf)</b> bisa dibuka di mana saja (HP/Laptop), tapi akan meminta password saat dibuka.
+                </p>
 
-                    <div class="step-container" style="margin-top: 15px; border-left: 3px solid #f472b6; padding-left: 15px;">
-                        <label style="color: #f472b6;">METODE 2: Buat Sandi Manual</label>
-                        <input type="text" name="password" placeholder="Contoh: KucingTerbang2025" required style="font-weight: bold;">
-                        <p class="hint" style="text-align: left;">*Penerima WAJIB tahu sandi ini untuk membuka file.</p>
-                    </div>
+                <form action="/api/method2_encrypt" method="POST" enctype="multipart/form-data">
+                    <label>1. Upload PDF:</label>
+                    <input type="file" name="file" accept=".pdf" required>
                     
-                    <button type="submit" class="action-btn">🔒 Enkripsi & Download</button>
+                    <label>2. Buat Password Pengaman:</label>
+                    <input type="text" name="password" placeholder="Password untuk membuka PDF nanti..." required style="border-color: #f87171;">
+                    
+                    <button type="submit" class="action-btn" style="background: linear-gradient(135deg, #f87171, #dc2626);">
+                        🛡️ Kunci PDF & Download
+                    </button>
                 </form>
             </div>
         </div>
 
-        <div id="dec" class="tab-content">
+        <div id="hist" class="main-content" style="display:none;">
             <div class="card">
-                <form action="/api/decrypt_dual" method="POST" enctype="multipart/form-data">
-                    <label>Upload File Terkunci (.secure):</label>
-                    <input type="file" name="file" required>
-                    
-                    <div class="step-container" style="margin-top: 15px; border-left: 3px solid #38bdf8; padding-left: 15px;">
-                        <label style="color: #38bdf8;">SYARAT 1: Private Key</label>
-                        <textarea name="private_key" placeholder="Paste Private Key Anda..." required style="height: 80px;"></textarea>
-                    </div>
-
-                    <div class="step-container" style="margin-top: 15px; border-left: 3px solid #f472b6; padding-left: 15px;">
-                        <label style="color: #f472b6;">SYARAT 2: Masukkan Sandi Manual</label>
-                        <input type="password" name="password" placeholder="Masukkan sandi dari pengirim..." required>
-                    </div>
-                    
-                    <button type="submit" class="action-btn secondary">🔓 Validasi Ganda & Buka File</button>
-                </form>
-            </div>
-        </div>
-
-        <div id="hist" class="tab-content">
-            <div class="card">
-                <h3>📜 Log Aktivitas</h3>
+                <h3>📜 Riwayat Proses</h3>
                 <table class="history-table">
-                    <thead><tr><th>Waktu</th><th>Aksi</th><th>File</th></tr></thead>
+                    <thead><tr><th>Waktu</th><th>Metode</th><th>File</th></tr></thead>
                     <tbody id="history-list"></tbody>
                 </table>
-                <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button onclick="loadHistory()" class="action-btn" style="background: #475569; flex: 1;">🔄 Refresh</button>
-                    <button onclick="clearHistory()" class="action-btn" style="background: #ef4444; flex: 1;">🗑️ Hapus</button>
-                </div>
+                <button onclick="clearHistory()" class="action-btn" style="background:#ef4444; margin-top:10px;">Hapus History</button>
             </div>
         </div>
     </div>
 
     <script>
-        function openTab(id) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        // Tab Utama (Pindah Metode)
+        function openMethod(id) {
+            document.querySelectorAll('.main-content').forEach(el => el.style.display = 'none');
             document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
+            document.getElementById(id).style.display = 'block';
             event.currentTarget.classList.add('active');
         }
 
+        // Sub Tab (Khusus Metode 1)
+        function subTab(id) {
+            document.querySelectorAll('.sub-content').forEach(el => el.style.display = 'none');
+            document.getElementById(id).style.display = 'block';
+        }
+
         async function generateKeys() {
-            const btn = document.querySelector('button[onclick="generateKeys()"]');
-            btn.innerText = "Memproses...";
-            const response = await fetch('/api/generate_keys', { method: 'POST' });
-            const data = await response.json();
+            const res = await fetch('/api/generate_keys', {method: 'POST'});
+            const data = await res.json();
             document.getElementById('gen_priv').value = data.private_key;
             document.getElementById('gen_pub').value = data.public_key;
-            btn.innerText = "Generate Key Pair";
-            alert("Kunci Siap! Sekarang Anda bisa Enkripsi.");
+            alert("Kunci Dibuat!");
         }
 
         async function loadHistory() {
             const list = document.getElementById('history-list');
-            try {
-                const res = await fetch('/api/get_history');
-                const data = await res.json();
-                list.innerHTML = '';
-                if(data.length === 0) list.innerHTML = '<tr><td colspan="3" align="center">Kosong</td></tr>';
-                data.forEach(item => {
-                    list.innerHTML += `<tr><td style="color:#94a3b8; font-size:0.8rem;">${item.timestamp}</td><td>${item.action}</td><td style="color:#fff;">${item.filename}</td></tr>`;
-                });
-            } catch(e) {}
+            const res = await fetch('/api/get_history');
+            const data = await res.json();
+            list.innerHTML = '';
+            data.forEach(item => {
+                let color = item.method.includes('Metode 1') ? '#38bdf8' : '#f87171';
+                list.innerHTML += `<tr>
+                    <td style="color:#94a3b8; font-size:0.8rem;">${item.timestamp}</td>
+                    <td style="color:${color}; font-weight:bold;">${item.method}</td>
+                    <td style="color:#fff;">${item.filename}</td>
+                </tr>`;
+            });
         }
+        
         async function clearHistory() {
-            if(confirm("Hapus?")) { await fetch('/api/clear_history', { method: 'POST' }); loadHistory(); }
+            if(confirm('Hapus?')) { await fetch('/api/clear_history', {method:'POST'}); loadHistory(); }
         }
     </script>
+    
+    <style>
+        .tabs-small { display: flex; gap: 5px; margin-bottom: 15px; border-bottom: 1px solid #334155; padding-bottom: 10px; }
+        .t-btn { background: none; border: 1px solid #334155; color: #94a3b8; padding: 5px 10px; cursor: pointer; border-radius: 4px; font-size: 0.85rem; }
+        .t-btn:hover { background: #334155; color: white; }
+    </style>
 </body>
 </html>
