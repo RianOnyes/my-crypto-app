@@ -2,10 +2,12 @@ from flask import Flask, render_template, request, send_file, jsonify
 import io
 import os
 import sqlite3
+import base64
 from datetime import datetime
-# Library Kriptografi Wajib
+# Library Kriptografi Lengkap
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import serialization, hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.fernet import Fernet
 
 app = Flask(__name__)
@@ -38,7 +40,17 @@ def log_history(filename, action):
                       (filename, action, waktu))
             conn.commit()
     except Exception as e:
-        print(f"Gagal log: {e}")
+        print(f"Log Error: {e}")
+
+# --- HELPER: Membuat Kunci AES dari Password Manual ---
+def derive_key_from_password(password, salt):
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,
+    )
+    return base64.urlsafe_b64encode(kdf.derive(password.encode()))
 
 # --- ROUTES ---
 
@@ -65,27 +77,20 @@ def clear_history():
             c.execute("DELETE FROM history")
             conn.commit()
         return jsonify({'status': 'success'})
-    except Exception as e:
+    except:
         return jsonify({'status': 'error'})
 
-# --- 1. BUAT KUNCI (Dengan Password) ---
+# 1. BUAT KUNCI (RSA Saja - Tanpa Password Key biar user ga bingung)
 @app.route('/api/generate_keys', methods=['POST'])
 def generate_keys():
-    data = request.json
-    passphrase = data.get('password') # Password Tahap 2
-    
-    if not passphrase:
-        return jsonify({'status': 'error', 'message': 'Password wajib diisi!'})
-
-    # Buat Kunci RSA 2048-bit
+    # Kita buat Private Key 'Polos' karena keamanan lapis 2 nanti ada di Password File
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     public_key = private_key.public_key()
     
-    # Kunci Privat diproteksi Password
     pem_priv = private_key.private_bytes(
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.BestAvailableEncryption(passphrase.encode())
+        encryption_algorithm=serialization.NoEncryption() # Tidak dikunci password, karena nanti file yang dikunci password
     )
     
     pem_pub = public_key.public_bytes(
@@ -99,32 +104,34 @@ def generate_keys():
         'public_key': pem_pub.decode('utf-8')
     })
 
-# --- 2. ENKRIPSI (Pengirim) ---
-@app.route('/api/encrypt_file', methods=['POST'])
-def encrypt_file():
+# 2. ENKRIPSI (GABUNGAN 2 METODE)
+@app.route('/api/encrypt_dual', methods=['POST'])
+def encrypt_dual():
     try:
         file = request.files['file']
-        pub_key_str = request.form['public_key']
+        pub_key_str = request.form['public_key'] # METODE 1: RSA
+        password = request.form['password']      # METODE 2: PASSWORD MANUAL
         
-        if not file or not pub_key_str:
-            return "File dan Public Key wajib ada", 400
+        if not file or not pub_key_str or not password:
+            return "Data tidak lengkap!", 400
 
-        log_history(file.filename, "Enkripsi RSA")
-
-        # Load Public Key
-        public_key = serialization.load_pem_public_key(pub_key_str.encode())
+        # A. Siapkan Bumbu (Salt) Acak
+        salt = os.urandom(16)
         
-        # Buat Session Key (AES)
-        aes_key = Fernet.generate_key()
+        # B. Ubah Password Manual User menjadi Kunci Enkripsi (AES)
+        # Kunci ini dibuat dari campuran Password + Salt
+        aes_key = derive_key_from_password(password, salt)
         fernet = Fernet(aes_key)
         
-        # Enkripsi Konten File
+        # C. Enkripsi File pakai Password tadi
         file_data = file.read()
         encrypted_file_data = fernet.encrypt(file_data)
         
-        # Enkripsi Session Key dengan RSA
-        encrypted_aes_key = public_key.encrypt(
-            aes_key,
+        # D. Enkripsi "Salt" pakai Public Key (RSA)
+        # Kenapa? Supaya orang yang tidak punya Private Key tidak bisa tahu "bumbu" passwordnya
+        public_key = serialization.load_pem_public_key(pub_key_str.encode())
+        encrypted_salt = public_key.encrypt(
+            salt,
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
                 algorithm=hashes.SHA256(),
@@ -132,9 +139,11 @@ def encrypt_file():
             )
         )
         
-        # Gabungkan Metadata + Key + Data
-        final_data = len(encrypted_aes_key).to_bytes(4, 'big') + encrypted_aes_key + encrypted_file_data
+        # E. Gabungkan: [Panjang Salt] + [Salt Terenkripsi RSA] + [File Terenkripsi Password]
+        final_data = len(encrypted_salt).to_bytes(4, 'big') + encrypted_salt + encrypted_file_data
         
+        log_history(file.filename, "Enkripsi Dual Layer")
+
         return send_file(
             io.BytesIO(final_data),
             as_attachment=True,
@@ -143,55 +152,55 @@ def encrypt_file():
         )
 
     except Exception as e:
-        return f"Error Enkripsi: {str(e)}", 500
+        return f"Error: {str(e)}", 500
 
-# --- 3. DEKRIPSI (2 TAHAPAN: Key + Password) ---
-@app.route('/api/decrypt_file', methods=['POST'])
-def decrypt_file():
+# 3. DEKRIPSI (WAJIB 2 METODE)
+@app.route('/api/decrypt_dual', methods=['POST'])
+def decrypt_dual():
     try:
         file = request.files['file']
-        priv_key_str = request.form['private_key'] # Tahap 1
-        passphrase = request.form['password']      # Tahap 2
+        priv_key_str = request.form['private_key'] # SYARAT 1: Punya Kunci
+        password = request.form['password']        # SYARAT 2: Tahu Password
         
-        if not file or not priv_key_str or not passphrase:
-            return "Data tidak lengkap! Harap isi Kunci dan Password.", 400
+        if not file or not priv_key_str or not password:
+            return "File, Kunci, dan Password wajib diisi!", 400
 
-        # Baca struktur file .secure
+        # Baca File
         full_data = file.read()
-        key_len = int.from_bytes(full_data[:4], 'big')
-        encrypted_aes_key = full_data[4:4+key_len]
-        encrypted_file_data = full_data[4+key_len:]
         
-        # PROSES VALIDASI TAHAP 1 & 2
+        # Pisahkan Bagian-bagiannya
+        salt_len = int.from_bytes(full_data[:4], 'big')
+        encrypted_salt = full_data[4:4+salt_len]
+        encrypted_file_data = full_data[4+salt_len:]
+        
+        # TAHAP 1: Buka Kunci RSA untuk dapatkan "Bumbu" (Salt)
         try:
-            private_key = serialization.load_pem_private_key(
-                priv_key_str.encode(),
-                password=passphrase.encode() # Validasi Password disini
+            private_key = serialization.load_pem_private_key(priv_key_str.encode(), password=None)
+            salt = private_key.decrypt(
+                encrypted_salt,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
             )
-        except ValueError:
-            return "GAGAL TAHAP 2: Password Anda Salah!", 403
         except Exception:
-            return "GAGAL TAHAP 1: Private Key tidak valid!", 403
+            return "GAGAL TAHAP 1: Private Key Anda Salah/Tidak Cocok!", 403
 
-        # Jika lolos, lanjut dekripsi
-        aes_key = private_key.decrypt(
-            encrypted_aes_key,
-            padding.OAEP(
-                mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-            )
-        )
-        
-        fernet = Fernet(aes_key)
-        original_file_data = fernet.decrypt(encrypted_file_data)
+        # TAHAP 2: Gunakan Password Manual + Salt untuk buka file
+        try:
+            aes_key = derive_key_from_password(password, salt)
+            fernet = Fernet(aes_key)
+            original_file_data = fernet.decrypt(encrypted_file_data)
+        except Exception:
+            return "GAGAL TAHAP 2: Private Key Benar, tapi PASSWORD ANDA SALAH!", 403
         
         log_history(file.filename, "Dekripsi Sukses")
         
         return send_file(
             io.BytesIO(original_file_data),
             as_attachment=True,
-            download_name="file_terbuka.pdf", # Asumsi PDF
+            download_name="file_terbuka.pdf",
             mimetype='application/pdf'
         )
         
